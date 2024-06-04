@@ -23,7 +23,10 @@ function App() {
     number: "",
   });
 
-  const [currentChosenPerson, setCurrentChosenPerson] = useState(null);
+  const [currentChosenPerson, setCurrentChosenPerson] = useState({
+    0: BigInt(0),
+    1: "",
+  });
   const [currentChosenPersonIndex, setCurrentChosenPersonIndex] = useState(0);
 
   const handleCurrentChosenPersonIndex = (
