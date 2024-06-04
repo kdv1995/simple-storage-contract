@@ -4,3 +4,7 @@
   padding: 2rem;
   text-align: center;
 }
+.theme {
+  background-color: yellowgreen;
+  color: #333;
+}

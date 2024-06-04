@@ -1,43 +1,86 @@
-import { BrowserProvider, Contract } from "ethers";
 import "./App.css";
-import { globalConstants } from "./contstants";
+import { globalConstants } from "./constants";
+import { useContext, useEffect, useState } from "react";
+import { Web3Context } from "./context/Web3ProviderContext";
+import { JsonRpcSigner } from "ethers";
+import { Contract } from "ethers";
 import ContractABI from "../../artifacts/contracts/SimpleStorage.sol/SimpleStorage.json";
+import {
+  getCurrentFavouriteNumber,
+  main,
+  storeTheNumber,
+} from "./utils/smartContractHandlers";
+import { ConnectButton } from "./components/ConnectButton";
 
 function App() {
-  let signer;
-  let provider;
-  let contract;
-  async function web3Provider() {
-    if (window.ethereum) {
-      provider = new BrowserProvider(window.ethereum);
-      signer = provider.getSigner().then((signer) => {
-        contract = new Contract(
-          globalConstants.address,
-          ContractABI.abi,
-          signer
-        );
-        getOwner().then(() => storeNumber(10));
-      });
+  const { provider } = useContext(Web3Context);
+  const [isConnected, setIsConnected] = useState(false);
+  const [signer, setSigner] = useState<JsonRpcSigner>();
+  const [favouriteNumber, setFavouriteNumber] = useState<number>(0);
+  const [inputValue, setInputValue] = useState<number>(0);
+
+  const contractReadOnly = new Contract(
+    globalConstants.address,
+    ContractABI.abi,
+    provider
+  );
+  const contractWriteable = new Contract(
+    globalConstants.address,
+    ContractABI.abi,
+    signer
+  );
+
+  const connectButtonHandler = async () => {
+    await main(provider, setIsConnected, setSigner).catch(console.error);
+  };
+
+  const storeTheNumberHandler = async () => {
+    await storeTheNumber(inputValue, contractWriteable).catch(console.error);
+  };
+
+  useEffect(() => {
+    if (localStorage.getItem("address")) {
+      main(provider, setIsConnected, setSigner).catch(console.error);
+      getCurrentFavouriteNumber(contractReadOnly).then((favouriteNumber) =>
+        setFavouriteNumber((favouriteNumber as BigInt).toString())
+      );
+    } else {
+      return;
     }
-  }
-
-  async function getOwner() {
-    const owner = await contract.owner();
-    console.log(owner);
-  }
-
-  async function storeNumber(num: number) {
-    const tx = await contract.storeTheNumber(num);
-    await tx.wait().then(() => {
-      contract.retrieveTheNumber().then((res: any) => {
-        console.log(res);
-      });
-    });
-  }
+  }, [favouriteNumber, provider]);
 
   return (
-    <div>
-      <button onClick={web3Provider}>Connect</button>
+    <div className="grid grid-cols-10 bg-neutral-700">
+      <div className="col-span-10">
+        <h1 className="text-white text-4xl mb-3">
+          Simple Storage smart contract
+        </h1>
+        <h2 className="text-slate-100 text-xl">
+          Contract address: {globalConstants.address}
+        </h2>
+        <ConnectButton
+          connectButtonHandler={connectButtonHandler}
+          isConnected={isConnected}
+          signer={signer}
+        />
+      </div>
+      <div className="col-span-2">
+        <div className="text-white">
+          Current favourite number:{favouriteNumber}
+        </div>
+        <h3 className="text-red-400 mt-5">Would you like to change it?</h3>
+        <input
+          value={inputValue}
+          type="number"
+          onChange={(e) => setInputValue(+e.target.value)}
+        />
+        <button
+          className="text-white text-2xl rounded-xl bg-red-300"
+          onClick={storeTheNumberHandler}
+        >
+          Store the new number
+        </button>
+      </div>
     </div>
   );
 }
