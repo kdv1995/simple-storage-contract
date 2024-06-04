@@ -27,8 +27,15 @@ export const getCurrentFavouriteNumber = async (contract: Contract) => {
   return favouriteNumber;
 };
 
-export const storeTheNumber = async (num: number, contract: Contract) => {
+export const storeTheNumber = async (
+  num: number,
+  contract: Contract,
+  setIsLoading: Dispatch<SetStateAction<boolean>>
+) => {
+  setIsLoading(true);
+  let receipt;
   const tx = await contract.storeTheNumber(num);
-  await tx.wait();
-  return tx;
+  receipt = await tx.wait();
+  if (receipt) setIsLoading(false);
+  return receipt;
 };
