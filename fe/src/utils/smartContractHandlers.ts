@@ -39,3 +39,21 @@ export const storeTheNumber = async (
   if (receipt) setIsLoading(false);
   return receipt;
 };
+
+export const storeTheNumberFromSomeone = async (
+  num: number,
+  name: string,
+  contract: Contract,
+  setIsLoading: Dispatch<SetStateAction<boolean>>
+) => {
+  let receipt;
+  const tx = await contract.storeTheNumberFromSomeone(num, name);
+  receipt = await tx.wait();
+  if (receipt) setIsLoading(false);
+  return receipt;
+};
+
+export const getPerson = async (index: number, contract: Contract) => {
+  let person = await contract.getPerson(index);
+  return person;
+};

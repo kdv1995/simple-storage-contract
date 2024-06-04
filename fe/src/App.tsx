@@ -1,21 +1,18 @@
 import "./App.css";
 import { globalConstants } from "./constants";
 import { useContext, useEffect, useState } from "react";
-import { Web3Context } from "./context/Web3ProviderContext";
-import { JsonRpcSigner } from "ethers";
-import { Contract } from "ethers";
-import ContractABI from "../../artifacts/contracts/SimpleStorage.sol/SimpleStorage.json";
 import {
   getCurrentFavouriteNumber,
-  main,
+  getPerson,
   storeTheNumber,
+  storeTheNumberFromSomeone,
 } from "./utils/smartContractHandlers";
 import { Header } from "./components/Header";
+import { useInitializeWeb3 } from "./hooks/useInitializeWeb3";
+import { Web3Context } from "./context/Web3ProviderContext";
 
 function App() {
   const { provider } = useContext(Web3Context);
-  const [signer, setSigner] = useState<JsonRpcSigner>();
-  const [isConnected, setIsConnected] = useState(false);
   const [favouriteNumber, setFavouriteNumber] = useState("");
   const [inputValue, setInputValue] = useState("");
 
@@ -26,24 +23,30 @@ function App() {
     number: "",
   });
 
+  const [currentChosenPerson, setCurrentChosenPerson] = useState(null);
+  const [currentChosenPersonIndex, setCurrentChosenPersonIndex] = useState(0);
+
+  const handleCurrentChosenPersonIndex = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setCurrentChosenPersonIndex(Number(e.target.value));
+  };
+
+  const {
+    isConnected,
+    signer,
+    contractWriteable,
+    contractReadOnly,
+    setSigner,
+    setIsConnected,
+  } = useInitializeWeb3();
+
   const handleFormValues = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormValues((prevState) => ({
       ...prevState,
       [e.target.name]: e.target.value,
     }));
-    console.log(formValues);
   };
-
-  const contractReadOnly = new Contract(
-    globalConstants.address,
-    ContractABI.abi,
-    provider
-  );
-  const contractWriteable = new Contract(
-    globalConstants.address,
-    ContractABI.abi,
-    signer
-  );
 
   const storeTheNumberHandler = async () => {
     const num = Number(parseInt(inputValue));
@@ -51,29 +54,46 @@ function App() {
       .then((receipt) => {
         if (receipt) {
           setFavouriteNumber(num.toString());
-          setFavouriteNumber("");
         }
       })
       .catch(console.error);
+  };
+
+  const storeNameAndNumberFromOthersHandler = async () => {
+    const num = Number(parseInt(formValues.number));
+    const name = formValues.name;
+    await storeTheNumberFromSomeone(
+      num,
+      name,
+      contractWriteable,
+      setIsLoading
+    ).then((receipt) => {
+      if (receipt) {
+        setFormValues({
+          name: "",
+          number: "",
+        });
+      }
+    });
+  };
+
+  const getPersonByIndexHandler = async () => {
+    await getPerson(currentChosenPersonIndex, contractReadOnly)
+      .then((person) => setCurrentChosenPerson(person))
+      .catch((error) => {
+        alert(error.message);
+      });
   };
 
   const handleInputValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);
   };
 
-  const handleInputNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputName(e.target.value);
-  };
-
   useEffect(() => {
-    if (localStorage.getItem("address")) {
-      main(provider, setIsConnected, setSigner).catch(console.error);
-      getCurrentFavouriteNumber(contractReadOnly).then((favouriteNumber) =>
-        setFavouriteNumber((favouriteNumber as BigInt).toString())
-      );
-    } else {
-      return;
-    }
+    getCurrentFavouriteNumber(contractReadOnly).then((favouriteNumber) =>
+      setFavouriteNumber((favouriteNumber as BigInt).toString())
+    );
+    getPersonByIndexHandler();
   }, [favouriteNumber, provider]);
 
   return (
@@ -135,12 +155,62 @@ function App() {
                 />
                 <button
                   className="text-white text-2xl  bg-red-300 px-2 py-1"
-                  onClick={storeTheNumberHandler}
+                  onClick={storeNameAndNumberFromOthersHandler}
                 >
                   Store your name and number
                 </button>
               </div>
             </div>
+          </div>
+        </>
+      )}
+      {isConnected && (
+        <>
+          <div className="flex items-center mt-5 gap-2">
+            <input
+              type="text"
+              placeholder="Enter index"
+              onChange={(e) => handleCurrentChosenPersonIndex(e)}
+            />
+            <button
+              className="text-white text-xl bg-yellow-500 px-3 py-1"
+              onClick={getPersonByIndexHandler}
+            >
+              Get user by index
+            </button>
+          </div>
+          <div className="relative overflow-x-auto shadow-md sm:rounded-lg mt-5">
+            <table className="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+              <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                <tr>
+                  <th scope="col" className="px-6 py-3">
+                    Current index {currentChosenPersonIndex}
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Number
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Name
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                  <th
+                    scope="row"
+                    className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white"
+                  >
+                    {currentChosenPersonIndex}
+                  </th>
+                  <td className="px-6 py-4">
+                    {currentChosenPerson[0].toString() || "No data"}
+                  </td>
+                  <td className="px-6 py-4">
+                    {currentChosenPerson[1] || "No Data"}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </>
       )}
